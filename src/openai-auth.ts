@@ -123,7 +123,8 @@ export async function getOpenAIAuth({
       await waitForConditionOrAtCapacity(page, () =>
         page.waitForSelector('#__next .btn-primary', { timeout: timeoutMs })
       )
-      await delay(500)
+      await delay(4000)
+      console.log('before click login')
 
       // click login button and wait for navigation to finish
       do {
@@ -177,9 +178,11 @@ export async function getOpenAIAuth({
       } else {
         await page.waitForSelector('#username')
         await page.type('#username', email)
-        await delay(100)
+        await delay(1000)
 
+        console.log('after input username')
         // NOTE: this is where you may encounter a CAPTCHA
+        console.log('wait for capecha')
         if (hasNopechaExtension) {
           await waitForRecaptcha(page, { timeoutMs })
         } else if (hasRecaptchaPlugin) {
@@ -216,6 +219,7 @@ export async function getOpenAIAuth({
         await delay(50)
         submitP = () => page.click('button[type="submit"]')
       }
+      console.log('to submit')
 
       await Promise.all([
         waitForConditionOrAtCapacity(page, () =>
@@ -227,7 +231,7 @@ export async function getOpenAIAuth({
         submitP()
       ])
     } else {
-      await delay(2000)
+      await delay(4000)
       await checkForChatGPTAtCapacity(page, { timeoutMs })
     }
 
