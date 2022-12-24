@@ -7,8 +7,6 @@
  * - Reload FunCAPTCHA on verification
  */
 const IS_DEVELOPMENT = false;
-// export const BASE_API = 'https://dev-api.nopecha.com';
-const BASE_API = 'https://api.nopecha.com';
 
 
 /**
@@ -164,7 +162,7 @@ class SettingsManager {
         recaptcha_auto_open: true,
         recaptcha_auto_solve: true,
         recaptcha_solve_delay: true,
-        recaptcha_solve_delay_time: 1000,
+        recaptcha_solve_delay_time: 2000,
         recaptcha_solve_method: 'Image',
 
         funcaptcha_auto_open: true,
