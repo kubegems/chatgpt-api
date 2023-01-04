@@ -1,0 +1,26 @@
+proxy:
+  image: kubegems/chatgpt-api-proxy:latest
+chatgpt:
+  # 副本数，和账号的数量一致
+  replicas: 1
+  # 处于某些原因，中国大陆需要代理服务器才能访问到openai,
+  PROXY_SERVER: "1.2.3.4:5678"
+  # 验证码破解插件的key, 如果没有这个插件，需要在pod启动的时候，kubectl port-forward 将pod的5900端口转发到本地，用vnc客户端打开后手动点击
+  NOPECHA_KEY: "abcdefg"
+  image: kubegems/chatgpt-api:latest
+  # .env 的内容文件当前目录下
+  localenv: .env.local
+feishubot:
+  image: kubegems/chatgpt-api-feishubot:latest
+  # 飞书appid
+  FeishuAppID: "cli_xxxx"
+  # 飞书appsecret
+  FeishuAppSecret: "xxxx"
+  # 飞书机器人名字
+  FeishuBotName: "name"
+  # 飞书的验证token,如果搞不明白是啥,可以去看飞书文档
+  FeishuVerificationToken: "verifytoken"
+  # 飞书的一个消息加密的key,如果搞不明白是啥,可以去看飞书文档
+  FeishuEventEncryptKey: ""
+  # 会话过期时间
+  ConversationExpireSeconds: 3600
