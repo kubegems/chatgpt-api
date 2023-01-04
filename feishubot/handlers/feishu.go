@@ -216,7 +216,8 @@ func (s *FeishuSession) Transfer(cli *lark.Client) {
 					s.parent_id = newParentId
 				}
 				s.RefreshExpire()
-				resp, err := cli.Im.Message.Reply(context.Background(), replyMessage(msg, replyText, source))
+				atUser := *msg.Message.ChatType == "group"
+				resp, err := cli.Im.Message.Reply(context.Background(), replyMessage(msg, replyText, source, atUser))
 				if err != nil {
 					log.Errorf("send message failed, %v\n", err)
 				} else {
@@ -250,11 +251,17 @@ func byebye(chatid, userid string) *larkim.CreateMessageReq {
 	).Build()
 }
 
-func replyMessage(message *larkim.P2MessageReceiveV1Data, replyContent, source string) *larkim.ReplyMessageReq {
+func replyMessage(message *larkim.P2MessageReceiveV1Data, replyContent, source string, atUser bool) *larkim.ReplyMessageReq {
+	var text string
+	if atUser {
+		text = fmt.Sprintf("<at user_id=\"%s\">Tom </at> %s \n【本次对话由 %s 提供】", *message.Sender.SenderId.UnionId, replyContent, source)
+	} else {
+		text = fmt.Sprintf("%s \n【本次对话由 %s 提供】", replyContent, source)
+	}
 	tmp := struct {
 		Text string `json:"text"`
 	}{
-		Text: fmt.Sprintf("<at user_id=\"%s\">Tom </at> %s \n【本次对话由 %s 提供】", *message.Sender.SenderId.UnionId, replyContent, source),
+		Text: text,
 	}
 	textContent, err := json.Marshal(tmp)
 	if err != nil {
