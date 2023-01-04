@@ -216,7 +216,8 @@ func (s *FeishuSession) Transfer(cli *lark.Client) {
 					s.parent_id = newParentId
 				}
 				s.RefreshExpire()
-				resp, err := cli.Im.Message.Reply(context.Background(), replyMessage(msg, replyText, source))
+				atUser := *msg.Message.ChatType == "group"
+				resp, err := cli.Im.Message.Reply(context.Background(), replyMessage(msg, replyText, source, atUser))
 				if err != nil {
 					log.Errorf("send message failed, %v\n", err)
 				} else {
@@ -250,7 +251,7 @@ func byebye(chatid, userid string) *larkim.CreateMessageReq {
 	).Build()
 }
 
-func replyMessage(message *larkim.P2MessageReceiveV1Data, replyContent, source string) *larkim.ReplyMessageReq {
+func replyMessage(message *larkim.P2MessageReceiveV1Data, replyContent, source string, atUser bool) *larkim.ReplyMessageReq {
 	tmp := struct {
 		Text string `json:"text"`
 	}{
