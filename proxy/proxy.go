@@ -32,11 +32,11 @@ func NewProxyEndpointHandler(r *ServiceRegistry) *ProxyEndpointHandler {
 	}
 }
 
-func (h *ProxyEndpointHandler) getInstance(u *url.URL) string {
+func (h *ProxyEndpointHandler) getInstance(u *url.URL) (string, bool) {
 	// 如果客户端指定了后端，且指定的后端在线，那就使用它
 	instance := u.Query().Get("instance")
 	if instance != "" && h.reg.isInstanceOnline(instance) {
-		return instance
+		return instance, false
 	}
 	// 客户端没指定或者指定的后端不在线, 就根据conversationId找
 	conversationId := u.Query().Get("conversationId")
@@ -45,14 +45,14 @@ func (h *ProxyEndpointHandler) getInstance(u *url.URL) string {
 		// 如果找到后端节点，且在线，那就用它
 		// 如果这个节点不在线，那就从这个节点将会话删除了，重新找一个新节点, 重新生成新会话
 		if online {
-			return instance
+			return instance, false
 		} else {
 			h.reg.removeConversation(conversationId)
-			return h.reg.oneEndpoint()
+			return h.reg.oneEndpoint(), true
 		}
 	}
 	// 如果没有提供conversationId, 那就选择会话最少的节点
-	return h.reg.oneEndpoint()
+	return h.reg.oneEndpoint(), true
 }
 
 func defaultEnv(key, defaultv string) string {
@@ -66,10 +66,17 @@ func (h *ProxyEndpointHandler) Proxy(c *gin.Context) {
 	u, _ := url.Parse(c.Request.URL.String())
 	p := httputil.NewSingleHostReverseProxy(u)
 	p.Director = func(req *http.Request) {
+		// 如果带了会话id，但是没找到节点, 返回了一个新节点，那么就将query中的conversationId删除了
+		instance, refresh := h.getInstance(u)
+		if refresh {
+			newQuery := req.URL.Query()
+			newQuery.Del("conversationId")
+			req.URL.RawQuery = newQuery.Encode()
+		}
 		req.URL.Scheme = defaultEnv("CHATAPI_SCHEME", "http")
 		req.URL.Host = fmt.Sprintf(
 			"%s.%s:%s",
-			h.getInstance(u),
+			instance,
 			defaultEnv("CHATAPI_SVC", "gptchat-api"),
 			defaultEnv("CHATAPI_SVC_PORT", "3000"),
 		)
