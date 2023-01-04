@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: feishubot
+  labels:
+    app: feishubot
+spec:
+  selector:
+    matchLabels:
+      app: feishubot
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: feishubot
+    spec:
+      containers:
+      - name: feishubot
+        image: {{ .Values.feishubot.image }}
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+          limits:
+            cpu: 500m
+            memory: 500Mi
+        env:
+        - name: ChatGPTHost
+          value: http://chat-proxy:9000
+        - name: FeishuBotName
+          value: {{ .Values.feishubot.ChatGPTHost }}
+        - name: FeishuAppID
+          value: {{ .Values.feishubot.FeishuAppID }}
+        - name: FeishuAppSecret
+          value: {{ .Values.feishubot.FeishuAppSecret }}
+        - name: FeishuVerificationToken
+          value: {{ .Values.feishubot.FeishuVerificationToken }}
+        {{- if .Values.feishubot.FeishuEventEncryptKey }}
+        - name: FeishuEventEncryptKey
+          value: {{ .Values.feishubot.FeishuEventEncryptKey }}
+        {{- end }}
+        - name: ConversationExpireSeconds
+          value: "{{ .Values.feishubot.ConversationExpireSeconds }}"
+        ports:
+        - containerPort: 9000
+          name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: feishubot
+spec:
+  selector:
+    app: feishubot
+  type: ClusterIP
+  ports:
+  - name: http
+    protocol: TCP
+    port: 9000
+    targetPort: 9000

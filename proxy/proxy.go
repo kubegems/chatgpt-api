@@ -55,12 +55,24 @@ func (h *ProxyEndpointHandler) getInstance(u *url.URL) string {
 	return h.reg.oneEndpoint()
 }
 
+func defaultEnv(key, defaultv string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return defaultv
+}
+
 func (h *ProxyEndpointHandler) Proxy(c *gin.Context) {
 	u, _ := url.Parse(c.Request.URL.String())
 	p := httputil.NewSingleHostReverseProxy(u)
 	p.Director = func(req *http.Request) {
-		req.URL.Scheme = os.Getenv("CHATAPI_SCHEME")
-		req.URL.Host = fmt.Sprintf("%s.%s:%s", h.getInstance(u), os.Getenv("CHATAPI_SVC"), os.Getenv("CHATAPI_SVC_PORT"))
+		req.URL.Scheme = defaultEnv("CHATAPI_SCHEME", "http")
+		req.URL.Host = fmt.Sprintf(
+			"%s.%s:%s",
+			h.getInstance(u),
+			defaultEnv("CHATAPI_SVC", "gptchat-api"),
+			defaultEnv("CHATAPI_SVC_PORT", "3000"),
+		)
 	}
 	p.ModifyResponse = func(resp *http.Response) error {
 		instance := resp.Header.Get("instance")

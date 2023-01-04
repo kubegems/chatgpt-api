@@ -64,14 +64,14 @@ func NewFeishuOptions() *FeishuOptions {
 	}
 	opt := &FeishuOptions{
 		ChatGPTHost:               getEnvDefault("ChatGPTHost", "chatgpt-api"),
-		FeishuAppID:               getEnvDefault("FeishuAppID", ""),
-		FeishuAppSecret:           getEnvDefault("FeishuSecret", ""),
 		FeishuBotName:             getEnvDefault("FeishuBotName", "chatgpt-bot"),
+		FeishuAppID:               getEnvDefault("FeishuAppID", ""),
+		FeishuAppSecret:           getEnvDefault("FeishuAppSecret", ""),
 		FeishuVerificationToken:   getEnvDefault("FeishuVerificationToken", ""),
 		FeishuEventEncryptKey:     getEnvDefault("FeishuEventEncryptKey", ""),
 		ConversationExpireSeconds: expireSeconds,
 	}
-	if opt.FeishuAppID == "" || opt.FeishuAppSecret == "" || opt.FeishuEventEncryptKey == "" {
+	if opt.FeishuAppID == "" || opt.FeishuAppSecret == "" || opt.FeishuVerificationToken == "" {
 		panic("Environment variable (FeishuAppID, FeishuAppSecret, FeishuVerificationToken) must provide")
 	}
 	return opt
@@ -84,6 +84,7 @@ func NewFeishuHandler(opt *FeishuOptions) *FeishuHandler {
 		sessions:    map[string]*FeishuSession{},
 		sessionLock: sync.RWMutex{},
 		cli:         cli,
+		opt:         opt,
 	}
 	h.api = NewChatGPTAPI(opt.ChatGPTHost)
 	h.dispatcher = dispatcher.NewEventDispatcher(
@@ -137,7 +138,7 @@ func (h *FeishuHandler) addOrRefreshSession(session_id, chat_id, sender_id strin
 		ctx, cancel := context.WithCancel(context.Background())
 		h.sessionLock.Lock()
 		defer h.sessionLock.Unlock()
-		h.sessions[session_id] = NewFeishuSession(ctx, cancel, session_id, chat_id, sender_id, h.api)
+		h.sessions[session_id] = NewFeishuSession(ctx, cancel, session_id, chat_id, sender_id, h)
 		go h.sessions[session_id].Transfer(h.cli)
 	}
 	return h.sessions[session_id]
@@ -281,15 +282,16 @@ func replyMessage(message *larkim.P2MessageReceiveV1Data, replyContent, source s
 	).Build()
 }
 
-func NewFeishuSession(ctx context.Context, cancel context.CancelFunc, id, chat_id, sender_id string, api APIIface) *FeishuSession {
+func NewFeishuSession(ctx context.Context, cancel context.CancelFunc, id, chat_id, sender_id string, h *FeishuHandler) *FeishuSession {
 	s := &FeishuSession{
 		ctx:      ctx,
+		h:        h,
 		cancel:   cancel,
 		id:       id,
 		chatid:   chat_id,
 		senderid: sender_id,
 		msgch:    make(chan *larkim.P2MessageReceiveV1Data, 100),
-		api:      api,
+		api:      h.api,
 	}
 	s.RefreshExpire()
 	return s

@@ -19,9 +19,13 @@ spec:
       labels:
         app: chat-proxy
     spec:
+      volumes:
+        - name: chat-proxy-cache
+          persistentVolumeClaim:
+            claimName: chat-proxy-cache
       containers:
       - name: chat-proxy
-        image: chatgpt-api-proxy:v1
+        image: {{ .Values.proxy.image }}
         imagePullPolicy: Always
         resources:
           requests:
@@ -33,9 +37,30 @@ spec:
         env:
         - name: CHATAPI_SVC
           value: chatgpt-api
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
         ports:
         - containerPort: 9000
           name: http
+        volumeMounts:
+        - mountPath: /cache
+          name: chat-proxy-cache
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    app: chat-proxy-cache
+  name: chat-proxy-cache
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
 ---
 apiVersion: v1
 kind: Service

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: gptchat-api-feishubot
+description: Helm Chart for gptchat-api deployed on kubernetes
+type: application
+version: 0.1.0
+appVersion: "1.16.0"

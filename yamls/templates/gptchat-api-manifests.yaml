@@ -1,0 +1,90 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: chatgpt-api
+spec:
+  updateStrategy:
+    rollingUpdate:
+      partition: 3
+    type: RollingUpdate
+  podManagementPolicy: Parallel
+  replicas: 3
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: chatgpt-api
+  serviceName: chatgpt-api
+  template:
+    metadata:
+      labels:
+        app: chatgpt-api
+    spec:
+      containers:
+      - name: chatgpt-api
+        env:
+        - name: PROXY_SERVER
+          value: {{ .Values.chatgpt.PROXY_SERVER }}
+        {{- if .Values.chatgpt.NOPECHA_KEY }}
+        - name: NOPECHA_KEY
+          value: {{ .Values.chatgpt.NOPECHA_KEY }}
+        {{- end }}
+        image: {{ .Values.chatgpt.image }}
+        imagePullPolicy: Always
+        resources: {}
+        ports:
+        - containerPort: 3000
+          name: http
+          protocol: TCP
+        - containerPort: 5900
+          name: vnc
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /ready
+            port: 3000
+            scheme: HTTP
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        volumeMounts:
+        - mountPath: /home/pptruser/chat/.env
+          name: config
+          subPath: .env
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      volumes:
+      - name: config
+        secret:
+          defaultMode: 420
+          secretName: chatgpt-api-cfg
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chatgpt-api
+spec:
+  ports:
+  - name: http
+    port: 3000
+    protocol: TCP
+    targetPort: 3000
+  - name: vnc
+    port: 5900
+    protocol: TCP
+    targetPort: 5900
+  selector:
+    app: chatgpt-api
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: chatgpt-api-cfg
+type: Opaque
+data:
+  .env: {{ .Files.Get .Values.chatgpt.localenv | b64enc }}
