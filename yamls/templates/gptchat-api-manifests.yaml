@@ -6,10 +6,10 @@ metadata:
 spec:
   updateStrategy:
     rollingUpdate:
-      partition: 3
+      partition: 1
     type: RollingUpdate
   podManagementPolicy: Parallel
-  replicas: 3
+  replicas: {{ .Values.chatgpt.replicas }}
   revisionHistoryLimit: 10
   selector:
     matchLabels:
