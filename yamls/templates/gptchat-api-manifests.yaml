@@ -87,4 +87,8 @@ metadata:
   name: chatgpt-api-cfg
 type: Opaque
 data:
+  {{- if .Values.chatgpt.localenv }}
   .env: {{ .Files.Get .Values.chatgpt.localenv | b64enc }}
+  {{- else }}
+  .env: {{ .Values.chatgpt.envContent | b64enc }}
+  {{- end }}

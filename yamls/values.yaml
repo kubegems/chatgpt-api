@@ -8,8 +8,12 @@ chatgpt:
   # 验证码破解插件的key, 如果没有这个插件，需要在pod启动的时候，kubectl port-forward 将pod的5900端口转发到本地，用vnc客户端打开后手动点击
   NOPECHA_KEY: "abcdefg"
   image: kubegems/chatgpt-api:latest
-  # .env 的内容文件当前目录下
-  localenv: .env.local
+  # .env 的内容文件当前目录下, 如果没提供，就用envContent的内容
+  localenv: ""
+  # 如果没有文件，就贴内容到这儿
+  envContent: |-
+    OPEN_AI_EMAIL=test@test.com
+    OPEN_AI_PASSWORD=pass
 feishubot:
   image: kubegems/chatgpt-api-feishubot:latest
   # 飞书appid
