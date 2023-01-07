@@ -19,16 +19,32 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const (
+	ChatGPTHost             = "ChatGPTHost"
+	FeishuBotName           = "FeishuBotName"
+	FeishuAppID             = "FeishuAppID"
+	FeishuAppSecret         = "FeishuAppSecret"
+	FeishuVerificationToken = "FeishuVerificationToken"
+	FeishuEventEncryptKey   = "FeishuEventEncryptKey"
+	FilterPlugins           = "FilterPlugins"
+	ProhibitedWords         = "ProhibitedWords"
+)
+
 type APIIface interface {
 	GetConversation(inputs, conversation_id, parent_id string) (reply, conversationId, parentId, source string, err error)
 }
 
+type MessageFilter interface {
+	Filter(text string) string
+}
+
 type FeishuHandler struct {
-	ctx         context.Context
-	dispatcher  *dispatcher.EventDispatcher
-	sessions    map[string]*FeishuSession
-	sessionLock sync.RWMutex
-	cli         *lark.Client
+	ctx           context.Context
+	dispatcher    *dispatcher.EventDispatcher
+	sessions      map[string]*FeishuSession
+	sessionLock   sync.RWMutex
+	cli           *lark.Client
+	messageFilter []MessageFilter
 
 	api APIIface
 	opt *FeishuOptions
@@ -42,6 +58,7 @@ type FeishuOptions struct {
 	FeishuVerificationToken   string
 	FeishuEventEncryptKey     string
 	ConversationExpireSeconds int64
+	Filters                   []string
 }
 
 func getEnvDefault(key, defaultv string) string {
@@ -50,6 +67,18 @@ func getEnvDefault(key, defaultv string) string {
 		return v
 	}
 	return defaultv
+}
+
+func (h *FeishuHandler) Filter(text string) string {
+	out := text
+	for _, filter := range h.messageFilter {
+		out = filter.Filter(out)
+	}
+	return out
+}
+
+func getEnvList(key string) []string {
+	return strings.Split(os.Getenv(key), ",")
 }
 
 func NewFeishuOptions() *FeishuOptions {
@@ -63,12 +92,13 @@ func NewFeishuOptions() *FeishuOptions {
 		expireSeconds = seconds
 	}
 	opt := &FeishuOptions{
-		ChatGPTHost:               getEnvDefault("ChatGPTHost", "chatgpt-api"),
-		FeishuBotName:             getEnvDefault("FeishuBotName", "chatgpt-bot"),
-		FeishuAppID:               getEnvDefault("FeishuAppID", ""),
-		FeishuAppSecret:           getEnvDefault("FeishuAppSecret", ""),
-		FeishuVerificationToken:   getEnvDefault("FeishuVerificationToken", ""),
-		FeishuEventEncryptKey:     getEnvDefault("FeishuEventEncryptKey", ""),
+		ChatGPTHost:               getEnvDefault(ChatGPTHost, "chatgpt-api"),
+		FeishuBotName:             getEnvDefault(FeishuBotName, "chatgpt-bot"),
+		FeishuAppID:               getEnvDefault(FeishuAppID, ""),
+		FeishuAppSecret:           getEnvDefault(FeishuAppSecret, ""),
+		FeishuVerificationToken:   getEnvDefault(FeishuVerificationToken, ""),
+		FeishuEventEncryptKey:     getEnvDefault(FeishuEventEncryptKey, ""),
+		Filters:                   getEnvList(FilterPlugins),
 		ConversationExpireSeconds: expireSeconds,
 	}
 	if opt.FeishuAppID == "" || opt.FeishuAppSecret == "" || opt.FeishuVerificationToken == "" {
@@ -86,6 +116,14 @@ func NewFeishuHandler(opt *FeishuOptions) *FeishuHandler {
 		cli:         cli,
 		opt:         opt,
 	}
+	filters := []MessageFilter{}
+	for _, filterName := range opt.Filters {
+		f, exist := predefinedFilters[filterName]
+		if exist {
+			filters = append(filters, f)
+		}
+	}
+	h.messageFilter = filters
 	h.api = NewChatGPTAPI(opt.ChatGPTHost)
 	h.dispatcher = dispatcher.NewEventDispatcher(
 		opt.FeishuVerificationToken,
@@ -217,6 +255,9 @@ func (s *FeishuSession) Transfer(cli *lark.Client) {
 				}
 				s.RefreshExpire()
 				atUser := *msg.Message.ChatType == "group"
+				if s.h.messageFilter != nil {
+					replyText = s.h.Filter(replyText)
+				}
 				resp, err := cli.Im.Message.Reply(context.Background(), replyMessage(msg, replyText, source, atUser))
 				if err != nil {
 					log.Errorf("send message failed, %v\n", err)
