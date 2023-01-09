@@ -137,6 +137,7 @@ func NewFeishuHandler(opt *FeishuOptions) *FeishuHandler {
 func (h *FeishuHandler) OnP2ReceiveMessage(ctx context.Context, event *larkim.P2MessageReceiveV1) error {
 	// 目前只处理单聊，和群聊
 	if !(*event.Event.Message.ChatType == "p2p" || *event.Event.Message.ChatType == "group") {
+		log.WithField("ChatType", event.Event.Message.ChatType).Debug("ignore")
 		return nil
 	}
 	// 如果是群聊，只处理 @ 了机器人的情况，且只@机器人一个

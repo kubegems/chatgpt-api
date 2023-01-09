@@ -39,7 +39,10 @@ func (api *ChatGPTAPI) buildDirectRequest(inputs, cid, pid string) (*http.Reques
 }
 
 func (api *ChatGPTAPI) doRequest(req *http.Request, resp Resp) error {
-	response, err := http.DefaultClient.Do(req)
+	cli := &http.Client{
+		Timeout: time.Second * 180,
+	}
+	response, err := cli.Do(req)
 	if err != nil {
 		log.WithField("STAGE", "api call error").Error(err)
 		return err
