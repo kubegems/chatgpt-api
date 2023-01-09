@@ -30,6 +30,7 @@ const (
 	ProhibitedWords         = "ProhibitedWords"
 	FilterReplaceText       = "FilterReplaceText"
 	ShowSource              = "ShowSource"
+	CustomErrorMessage      = "CustomErrorMessage"
 )
 
 type APIIface interface {
@@ -63,6 +64,7 @@ type FeishuOptions struct {
 	FilterReplaceText         string
 	ShowSource                bool
 	Filters                   []string
+	CustomErrorMessage        string
 }
 
 func getEnvDefault(key, defaultv string) string {
@@ -109,6 +111,7 @@ func NewFeishuOptions() *FeishuOptions {
 		Filters:                   getEnvList(FilterPlugins),
 		FilterReplaceText:         getEnvDefault(FilterReplaceText, "..."),
 		ShowSource:                getEnvBool(ShowSource),
+		CustomErrorMessage:        getEnvDefault(CustomErrorMessage, "Sorry, I can't deal with you question"),
 		ConversationExpireSeconds: expireSeconds,
 	}
 	if opt.FeishuAppID == "" || opt.FeishuAppSecret == "" || opt.FeishuVerificationToken == "" {
@@ -256,7 +259,7 @@ func (s *FeishuSession) Transfer(cli *lark.Client) {
 				replyText, newConversationId, newParentId, source, err := s.api.GetConversation(textContent, s.conversation_id, s.parent_id)
 				if err != nil {
 					log.Errorf("upstream api invoke failed, %v\n", err)
-					replyText = "sorry, some error occurred..."
+					replyText = s.h.opt.CustomErrorMessage
 				}
 				if newConversationId != "" {
 					s.conversation_id = newConversationId
