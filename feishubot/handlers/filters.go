@@ -13,7 +13,11 @@ type KeywordsFilter struct {
 func (f *KeywordsFilter) Filter(text string) string {
 	for _, key := range f.words {
 		if strings.Contains(text, key) {
-			return "..."
+			text := os.Getenv(FilterReplaceText)
+			if text == "" {
+				return "..."
+			}
+			return text
 		}
 	}
 	return text
