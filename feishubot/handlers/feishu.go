@@ -28,6 +28,8 @@ const (
 	FeishuEventEncryptKey   = "FeishuEventEncryptKey"
 	FilterPlugins           = "FilterPlugins"
 	ProhibitedWords         = "ProhibitedWords"
+	FilterReplaceText       = "FilterReplaceText"
+	ShowSource              = "ShowSource"
 )
 
 type APIIface interface {
@@ -58,6 +60,8 @@ type FeishuOptions struct {
 	FeishuVerificationToken   string
 	FeishuEventEncryptKey     string
 	ConversationExpireSeconds int64
+	FilterReplaceText         string
+	ShowSource                bool
 	Filters                   []string
 }
 
@@ -81,6 +85,10 @@ func getEnvList(key string) []string {
 	return strings.Split(os.Getenv(key), ",")
 }
 
+func getEnvBool(key string) bool {
+	return os.Getenv("ShowSource") == "yes"
+}
+
 func NewFeishuOptions() *FeishuOptions {
 	var expireSeconds int64
 	secondStr := getEnvDefault("ConversationExpireSeconds", "")
@@ -99,6 +107,8 @@ func NewFeishuOptions() *FeishuOptions {
 		FeishuVerificationToken:   getEnvDefault(FeishuVerificationToken, ""),
 		FeishuEventEncryptKey:     getEnvDefault(FeishuEventEncryptKey, ""),
 		Filters:                   getEnvList(FilterPlugins),
+		FilterReplaceText:         getEnvDefault(FilterReplaceText, "..."),
+		ShowSource:                getEnvBool(ShowSource),
 		ConversationExpireSeconds: expireSeconds,
 	}
 	if opt.FeishuAppID == "" || opt.FeishuAppSecret == "" || opt.FeishuVerificationToken == "" {
@@ -259,7 +269,7 @@ func (s *FeishuSession) Transfer(cli *lark.Client) {
 				if s.h.messageFilter != nil {
 					replyText = s.h.Filter(replyText)
 				}
-				resp, err := cli.Im.Message.Reply(context.Background(), replyMessage(msg, replyText, source, atUser))
+				resp, err := cli.Im.Message.Reply(context.Background(), replyMessage(msg, replyText, source, atUser, s.h.opt.ShowSource))
 				if err != nil {
 					log.Errorf("send message failed, %v\n", err)
 				} else {
@@ -293,12 +303,17 @@ func byebye(chatid, userid string) *larkim.CreateMessageReq {
 	).Build()
 }
 
-func replyMessage(message *larkim.P2MessageReceiveV1Data, replyContent, source string, atUser bool) *larkim.ReplyMessageReq {
-	var text string
+func replyMessage(message *larkim.P2MessageReceiveV1Data, replyContent, source string, atUser bool, showSource bool) *larkim.ReplyMessageReq {
+	var (
+		text, sourceText string
+	)
+	if showSource {
+		sourceText = fmt.Sprintf("【本次对话由 %s 提供】", source)
+	}
 	if atUser {
-		text = fmt.Sprintf("<at user_id=\"%s\">Tom </at> %s \n【本次对话由 %s 提供】", *message.Sender.SenderId.UnionId, replyContent, source)
+		text = fmt.Sprintf("<at user_id=\"%s\">Tom </at> %s \n %s", *message.Sender.SenderId.UnionId, replyContent, sourceText)
 	} else {
-		text = fmt.Sprintf("%s \n【本次对话由 %s 提供】", replyContent, source)
+		text = fmt.Sprintf("%s \n%s", replyContent, sourceText)
 	}
 	tmp := struct {
 		Text string `json:"text"`
