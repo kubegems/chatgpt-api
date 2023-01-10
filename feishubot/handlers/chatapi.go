@@ -14,10 +14,17 @@ import (
 
 type ChatGPTAPI struct {
 	host string
+	cli  *http.Client
 }
 
 func NewChatGPTAPI(host string) *ChatGPTAPI {
-	return &ChatGPTAPI{host: host}
+	cli := &http.Client{
+		Timeout: time.Second * 180,
+	}
+	return &ChatGPTAPI{
+		host: host,
+		cli:  cli,
+	}
 }
 
 func (api *ChatGPTAPI) buildDirectRequest(inputs, cid, pid string) (*http.Request, error) {
@@ -39,10 +46,7 @@ func (api *ChatGPTAPI) buildDirectRequest(inputs, cid, pid string) (*http.Reques
 }
 
 func (api *ChatGPTAPI) doRequest(req *http.Request, resp Resp) error {
-	cli := &http.Client{
-		Timeout: time.Second * 180,
-	}
-	response, err := cli.Do(req)
+	response, err := api.cli.Do(req)
 	if err != nil {
 		log.WithField("STAGE", "api call error").Error(err)
 		return err
