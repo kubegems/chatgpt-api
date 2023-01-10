@@ -83,7 +83,7 @@ func (api *ChatGPTAPI) GetConversation(inputs, cid, pid string) (reply, conversa
 	if err = api.doRequest(req, resp); err != nil {
 		return
 	}
-	retryTime := 5
+	retryTime := getEnvInt(RetryTime)
 	for !resp.IsOK() && retryTime > 0 {
 		// chatgpt-api 可能出现刷新session，等待三秒重试
 		log.WithField("STAGE", "retry api call").Debug(inputs)
@@ -94,6 +94,10 @@ func (api *ChatGPTAPI) GetConversation(inputs, cid, pid string) (reply, conversa
 			return
 		}
 		retryTime--
+	}
+	if !resp.IsOK() {
+		err = fmt.Errorf("not a valid response")
+		return
 	}
 	reply = resp.GetReply()
 	conversationId = resp.GetConversationID()

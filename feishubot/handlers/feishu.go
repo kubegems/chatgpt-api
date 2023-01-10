@@ -31,6 +31,7 @@ const (
 	FilterReplaceText       = "FilterReplaceText"
 	ShowSource              = "ShowSource"
 	CustomErrorMessage      = "CustomErrorMessage"
+	RetryTime               = "RetryTime"
 )
 
 type APIIface interface {
@@ -64,6 +65,7 @@ type FeishuOptions struct {
 	FilterReplaceText         string
 	ShowSource                bool
 	Filters                   []string
+	RetryTime                 int
 	CustomErrorMessage        string
 }
 
@@ -91,6 +93,14 @@ func getEnvBool(key string) bool {
 	return os.Getenv("ShowSource") == "yes"
 }
 
+func getEnvInt(key string) int {
+	retryTime, err := strconv.Atoi(os.Getenv(key))
+	if err != nil {
+		return 0
+	}
+	return retryTime
+}
+
 func NewFeishuOptions() *FeishuOptions {
 	var expireSeconds int64
 	secondStr := getEnvDefault("ConversationExpireSeconds", "")
@@ -112,6 +122,7 @@ func NewFeishuOptions() *FeishuOptions {
 		FilterReplaceText:         getEnvDefault(FilterReplaceText, "..."),
 		ShowSource:                getEnvBool(ShowSource),
 		CustomErrorMessage:        getEnvDefault(CustomErrorMessage, "Sorry, I can't deal with you question"),
+		RetryTime:                 getEnvInt(RetryTime),
 		ConversationExpireSeconds: expireSeconds,
 	}
 	if opt.FeishuAppID == "" || opt.FeishuAppSecret == "" || opt.FeishuVerificationToken == "" {
@@ -229,6 +240,7 @@ type FeishuSession struct {
 	msgch    chan *larkim.P2MessageReceiveV1Data
 	api      APIIface
 	h        *FeishuHandler
+	lastTime *time.Time
 
 	conversation_id string
 	parent_id       string
@@ -255,6 +267,14 @@ func (s *FeishuSession) Transfer(cli *lark.Client) {
 			if err != nil {
 				log.Errorln("can't parse content ", *msg.Message.Content)
 			} else {
+				if s.lastTime != nil {
+					nextTime := s.lastTime.Add(time.Second * 6)
+					if time.Now().Before(nextTime) {
+						d := time.Until(nextTime)
+						<-time.After(d)
+					}
+
+				}
 
 				replyText, newConversationId, newParentId, source, err := s.api.GetConversation(textContent, s.conversation_id, s.parent_id)
 				if err != nil {
